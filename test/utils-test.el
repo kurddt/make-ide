@@ -34,7 +34,7 @@
 
 (require 'ert)
 (require 'cl)
-(require 'cmake-ide)
+(require 'make-ide)
 
 
 (ert-deftest test-cide--string-empty-p ()

@@ -32,7 +32,7 @@
 (add-to-list 'load-path cide--root-path)
 
 (require 'ert)
-(require 'cmake-ide)
+(require 'make-ide)
 (require 'cl-lib)
 (require 'auto-complete-clang)
 (require 'company)
@@ -96,7 +96,7 @@
 
 
 (ert-deftest test-flags-to-include-paths ()
-  (let ((cmake-ide-build-dir "/tmp"))
+  (let ((make-ide-build-dir "/tmp"))
     (should (equal (cide--flags-to-include-paths '("-Ifoo" "-Ibar")) '("/tmp/foo" "/tmp/bar")))
     (should (equal (cide--flags-to-include-paths '("-Iboo" "-Ibaz" "-Dloo" "-Idoo")) '("/tmp/boo" "/tmp/baz" "/tmp/doo")))))
 
@@ -203,7 +203,7 @@
                          '("/foo/bar.h" "a.h" "h.h")))))
 
 (ert-deftest test-all-vars ()
-  (let ((cmake-ide-build-dir "/tmp")
+  (let ((make-ide-build-dir "/tmp")
         (idb (cide--cdb-json-string-to-idb
               "[{\"file\": \"file1.c\",
                   \"command\": \"cmd1 -Iinc1 -Iinc2 -Dfoo=bar -S -F -g\"}]")))
@@ -217,7 +217,7 @@
      (should (equal-lists flycheck-clang-args '("-S" "-F" "-g"))))))
 
 (ert-deftest test-all-vars-ccache ()
-  (let ((cmake-ide-build-dir "/tmp")
+  (let ((make-ide-build-dir "/tmp")
         (idb (cide--cdb-json-string-to-idb
               "[{\"file\": \"file1.c\",
                   \"command\": \"/usr/bin/ccache clang++ -Iinc1 -Iinc2 -Dfoo=bar -S -F -g -std=c++14\"}]")))
@@ -235,7 +235,7 @@
   (let ((idb (cide--cdb-json-string-to-idb
               "[{\"file\": \"file1.c\",
                   \"command\": \"/usr/lib/ccache/bin/clang++ -Iinc1 -Iinc2 -Dfoo=bar -S -F -g -std=c++14\"}]"))
-        (cmake-ide-project-dir "/tmp"))
+        (make-ide-project-dir "/tmp"))
     (with-non-empty-file
      (cide--set-flags-for-file idb (current-buffer))
      (should (equal-lists ac-clang-flags '("-Iinc1" "-Iinc2" "-Dfoo=bar" "-S" "-F" "-std=c++14"))))))
@@ -303,7 +303,7 @@
   (should (equal (cide--is-src-file "foo.cpp") t))
   (should (equal (cide--is-src-file "foo.yyy") nil))
   (should (equal (cide--is-src-file "foo.cu") nil))
-  (let ((cmake-ide-src-extensions '(".cu")))
+  (let ((make-ide-src-extensions '(".cu")))
     (should (equal (cide--is-src-file "foo.cu") t))
     (should (equal (cide--is-src-file "foo.cpp") nil))))
 
@@ -311,7 +311,7 @@
   (should (equal (cide--args-to-only-flags '("foo" "bar" "foo.cxx")) '("foo" "bar"))))
 
 (ert-deftest test-issue-52 ()
-  (let ((cmake-ide-build-dir "/usr/bin")
+  (let ((make-ide-build-dir "/usr/bin")
         (idb (cide--cdb-json-string-to-idb
               "[
  {
@@ -346,7 +346,7 @@
     (should (equal (cide--idb-obj-get fake-params 'directory) nil))))
 
 (ert-deftest test-issue-79 ()
-  (let ((cmake-ide-build-dir "/usr/bin")
+  (let ((make-ide-build-dir "/usr/bin")
         (idb (cide--cdb-json-string-to-idb
               "[
  {
@@ -363,7 +363,7 @@
      )))
 
 (ert-deftest test-issue-79-2 ()
-  (let ((cmake-ide-build-dir "/usr")
+  (let ((make-ide-build-dir "/usr")
         (idb (cide--cdb-json-string-to-idb
               "[
  {
@@ -388,7 +388,7 @@ list of sys-includes consed on the front, causing
 company-c-headers to break."
   (with-non-empty-file
    (let ((old-company-c-headers-path-system company-c-headers-path-system))
-     (cmake-ide-set-compiler-flags (current-buffer) () () '("/foo" "/bar"))
+     (make-ide-set-compiler-flags (current-buffer) () () '("/foo" "/bar"))
      (should (equal
               (append '("/foo" "/bar") old-company-c-headers-path-system)
               company-c-headers-path-system)))))
@@ -409,7 +409,7 @@ company-c-headers to break."
      (lambda (candidate) (should-not (cide--valid-cppcheck-standard-p candidate)))
      invalid-standards)))
 
-(ert-deftest test-cide--cmake-standard-to-cppcheck-standard ()
+(ert-deftest test-cide--make-standard-to-cppcheck-standard ()
   "Check that cide--cmake-standard-to-cppcheck-standard behaves as expected."
   (let ((valid-standards '("posix" "c89" "c99" "c11" "c++03" "c++11"))
         (convertible-standards '("c90" "c++98" "c++0x" "c++1y" "c++1z" "c++14" "c++17"

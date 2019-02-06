@@ -1,7 +1,7 @@
 (source gnu)
 (source melpa)
 
-(package-file "cmake-ide.el")
+(package-file "make-ide.el")
 
 (depends-on "dash")
 
