@@ -1,4 +1,4 @@
-;;; file-test.el --- Unit tests for cmake-ide.
+;;; file-test.el --- Unit tests for make-ide.
 
 ;; Copyright (C) 2014-2018
 
@@ -33,7 +33,7 @@
 (add-to-list 'load-path cide--root-path)
 
 (require 'ert)
-(require 'cmake-ide)
+(require 'make-ide)
 (require 'cl-lib)
 (require 'auto-complete-clang)
 (require 'company)
@@ -67,15 +67,15 @@
        (null (cl-set-difference lst1 lst2 :test 'equal))))
 
 
-(defmacro with-cpp-file (cmakelists-txt file-name file-contents &rest body)
-  "Write CMakeLists.txt with CMAKELISTS-TXT then FILE-NAME out to the sandbox with FILE-CONTENTS then evaluate BODY."
+(defmacro with-cpp-file (makelists-txt file-name file-contents &rest body)
+  "Write Makefile with MAKELISTS-TXT then FILE-NAME out to the sandbox with FILE-CONTENTS then evaluate BODY."
   `(let ((file-name ,file-name))
      (with-sandbox
       (write-file-str file-name ,file-contents)
-      (write-file-str "CMakeLists.txt" ,cmakelists-txt)
+      (write-file-str "Makefile" ,makelists-txt)
       (find-file file-name)
       (flycheck-mode)
-      (cmake-ide-maybe-run-cmake)
+      (make-ide-maybe-run-make)
       (cide--register-a-callback
        (lambda (_process _event)
          ,@body))
@@ -88,15 +88,15 @@
   (setq cide--cache-dir-to-cdb-hash (cide--make-hash-table))
   (setq cide--cache-pkey-to-dir (cide--make-hash-table))
   (setq cide--cache-irony-dirs (cide--make-hash-table))
-  (setq cmake-ide-build-dir cide--sandbox-path))
+  (setq make-ide-build-dir cide--sandbox-path))
 
 
 (ert-deftest test-one-cpp-file ()
   (with-cpp-file
    "
-cmake_minimum_required(VERSION 3.0.0 FATAL_ERROR)
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_CXX_FLAGS_DEBUG \"-g -Wall -Wextra\")
+make_minimum_required(VERSION 3.0.0 FATAL_ERROR)
+set(MAKE_BUILD_TYPE Debug)
+set(MAKE_CXX_FLAGS_DEBUG \"-g -Wall -Wextra\")
 include_directories(\"leincludes\")
 add_definitions(\"-DDAS_DEF\")
 add_executable(app \"foo.cpp\")"
@@ -104,12 +104,12 @@ add_executable(app \"foo.cpp\")"
    "int add(int i, int j) { return i + j; }"
 
    (let ((leincludes (expand-file-name "leincludes" cide--sandbox-path)))
-     (should (equal-lists ac-clang-flags (list "-DDAS_DEF" (format "-I%s" leincludes) "-Wall" "-Wextra" "-o" "CMakeFiles/app.dir/foo.cpp.o")))
+     (should (equal-lists ac-clang-flags (list "-DDAS_DEF" (format "-I%s" leincludes) "-Wall" "-Wextra" "-o" "MakeFiles/app.dir/foo.cpp.o")))
      (should (equal-lists company-clang-arguments ac-clang-flags))
      (should (equal-lists flycheck-clang-include-path (list leincludes)))
      (should (equal-lists flycheck-clang-definitions '("DAS_DEF")))
      (should (equal-lists flycheck-clang-includes nil))
-     (should (equal-lists flycheck-clang-args '("-g" "-Wall" "-Wextra" "-o" "CMakeFiles/app.dir/foo.cpp.o" "-c"))))))
+     (should (equal-lists flycheck-clang-args '("-g" "-Wall" "-Wextra" "-o" "MakeFiles/app.dir/foo.cpp.o" "-c"))))))
 
 
 (ert-deftest test-cide--get-compile-command-ninja ()
@@ -181,44 +181,44 @@ add_executable(app \"foo.cpp\")"
      (should (equal bar nil)))))
 
 
-(ert-deftest test-cide--locate-cmakelists-no-dir-var ()
+(ert-deftest test-cide--locate-makelists-no-dir-var ()
   (with-sandbox
-   (write-file-str "CMakeLists.txt" "stuff")
+   (write-file-str "Makefile" "stuff")
    (f-mkdir "subdir")
-   (write-file-str "subdir/CMakeLists.txt" "stuff")
+   (write-file-str "subdir/Makefile" "stuff")
    (let ((default-directory (expand-file-name "subdir")))
-     (should (equal (cide--locate-cmakelists)
-                    (expand-file-name "CMakeLists.txt" cide--sandbox-path))))))
+     (should (equal (cide--locate-makelists)
+                    (expand-file-name "Makefile" cide--sandbox-path))))))
 
-(ert-deftest test-cide--locate-cmakelists-with-dir-var ()
+(ert-deftest test-cide--locate-makelists-with-dir-var ()
   (with-sandbox
-   (write-file-str "CMakeLists.txt" "stuff")
+   (write-file-str "Makefile" "stuff")
    (f-mkdir "subdir")
-   (write-file-str "subdir/CMakeLists.txt" "stuff")
+   (write-file-str "subdir/Makefile" "stuff")
    (let* ((default-directory (expand-file-name "subdir"))
           ;; setting this should select the subdir instead of the topmost dir
-          (cmake-ide-project-dir default-directory))
-     (should (equal (cide--locate-cmakelists)
-                    (expand-file-name "CMakeLists.txt"
+          (make-ide-project-dir default-directory))
+     (should (equal (cide--locate-makelists)
+                    (expand-file-name "Makefile"
                                       (expand-file-name "subdir" cide--sandbox-path)))))))
 
-(ert-deftest test-cide--get-project-key-cmake ()
+(ert-deftest test-cide--get-project-key-make ()
   (let ((default-directory "/tmp"))
-    (f-write-text "stuff" 'utf-8 "/tmp/CMakeLists.txt")
+    (f-write-text "stuff" 'utf-8 "/tmp/Makefile")
     (should (equal (cide--project-key)
-                   "_tmp__DCMAKE_BUILD_TYPE_Release"))))
+                   "_tmp__DMAKE_BUILD_TYPE_Release"))))
 
-(ert-deftest test-cide--get-project-key-no-cmake ()
+(ert-deftest test-cide--get-project-key-no-make ()
   (let ((default-directory "/tmp"))
     (with-sandbox (should (equal (cide--project-key) nil)))))
 
 (ert-deftest test-cide--build-dir ()
   (with-sandbox
    (initialise-caches "{}")
-   (setq cmake-ide-build-dir nil)
-   (setq cmake-ide-build-pool-dir nil)
+   (setq make-ide-build-dir nil)
+   (setq make-ide-build-pool-dir nil)
    (cide--mkdir "subdir")
-   (write-file-str "subdir/CMakeLists.txt" "stuff")
+   (write-file-str "subdir/Makefile" "stuff")
    (let ((default-directory (expand-file-name "subdir")))
      (should (equal (seq-subseq (cide--build-dir) 0 5) temporary-file-directory)))))
 
@@ -227,8 +227,8 @@ add_executable(app \"foo.cpp\")"
    (initialise-caches "{}")
    (cide--mkdir "project")
    (cide--mkdir "build")
-   (setq cmake-ide-build-dir (expand-file-name "build"))
-   (write-file-str "project/CMakeLists.txt" "stuff")
+   (setq make-ide-build-dir (expand-file-name "build"))
+   (write-file-str "project/Makefile" "stuff")
    (let ((default-directory (expand-file-name "project")))
      (should (equal (cide--build-dir) (file-name-as-directory (expand-file-name "build" cide--sandbox-path)))))))
 
@@ -236,12 +236,12 @@ add_executable(app \"foo.cpp\")"
   (with-sandbox
 
    (initialise-caches "{}")
-   (setq cmake-ide-build-dir nil)
-   (setq cmake-ide-build-pool-dir "/tmp/foo/bar")
-   (setq cmake-ide-build-pool-use-persistent-naming t)
+   (setq make-ide-build-dir nil)
+   (setq make-ide-build-pool-dir "/tmp/foo/bar")
+   (setq make-ide-build-pool-use-persistent-naming t)
 
    (cide--mkdir "subdir")
-   (write-file-str "subdir/CMakeLists.txt" "stuff")
+   (write-file-str "subdir/Makefile" "stuff")
    (let ((default-directory (expand-file-name "subdir")))
      (should (equal (cide--build-dir) (file-name-as-directory (expand-file-name (cide--project-key) "/tmp/foo/bar/")))))))
 
